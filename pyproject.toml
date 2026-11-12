@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metabproject"
-version = "0.2.0"
+version = "0.2.1"
 description = "Persistent, project-based untargeted LC-MS/MS metabolomics data processing"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [{ name = "Alejandro MC" }]
 dependencies = [
     "click>=8.0",
