@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MetabProject Explorer: {{ project_name }}</title>
+{% if embed_plotly %}
+<script>{{ plotly_js }}</script>
+{% else %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% endif %}
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#f5f6fa;color:#222}
+a{color:#3b82f6;text-decoration:none}
+header{background:#1e293b;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:16px}
+header h1{font-size:18px;font-weight:600}
+header .meta{font-size:12px;color:#94a3b8;margin-top:2px}
+#tabs{background:#fff;border-bottom:2px solid #e2e8f0;display:flex;gap:0}
+.tab-btn{padding:10px 20px;border:none;background:none;cursor:pointer;font-size:14px;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab-btn.active{color:#3b82f6;border-bottom-color:#3b82f6;font-weight:600}
+.view{display:none;padding:16px}
+.view.active{display:block}
+/* --- List view --- */
+#list-layout{display:flex;gap:16px;height:calc(100vh - 100px)}
+#filters{width:240px;flex-shrink:0;background:#fff;border-radius:8px;padding:14px;overflow-y:auto;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#filters h3{font-size:13px;font-weight:600;color:#475569;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+#filters .filter-group{margin-bottom:14px}
+#filters label{display:block;font-size:12px;color:#64748b;margin-bottom:4px;font-weight:500}
+#filters select,#filters input[type=text],#filters input[type=number]{width:100%;padding:5px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;background:#fff}
+#filters .checkbox-group{display:flex;flex-direction:column;gap:4px}
+#filters .checkbox-group label{display:flex;align-items:center;gap:6px;font-weight:400;font-size:12px;color:#374151}
+#filters button{width:100%;padding:6px;border-radius:5px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:12px;margin-top:4px}
+#filters button:hover{background:#e2e8f0}
+#list-main{flex:1;display:flex;flex-direction:column;min-width:0}
+#results-bar{padding:6px 4px;font-size:12px;color:#64748b;flex-shrink:0}
+#feature-table-wrap{flex:1;overflow:auto;background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+table{width:100%;border-collapse:collapse}
+thead th{position:sticky;top:0;background:#f8fafc;padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:#475569;border-bottom:2px solid #e2e8f0;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{background:#e2e8f0}
+tbody tr{cursor:pointer;border-bottom:1px solid #f1f5f9}
+tbody tr:hover{background:#f0f9ff}
+tbody td{padding:7px 10px;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-block;padding:1px 6px;border-radius:9px;font-size:10px;font-weight:600;margin-right:2px}
+.badge-gnps{background:#dbeafe;color:#1d4ed8}
+.badge-sirius{background:#ede9fe;color:#6d28d9}
+.badge-canopus{background:#d1fae5;color:#065f46}
+.badge-suspect{background:#fef3c7;color:#92400e}
+.badge-up{background:#dcfce7;color:#15803d}
+.badge-down{background:#fee2e2;color:#b91c1c}
+.badge-ns{background:#f1f5f9;color:#64748b}
+.badge-sig{background:#fef9c3;color:#854d0e}
+.badge-bucket{background:#e0e7ff;color:#3730a3}
+.badge-isf{background:#ffedd5;color:#9a3412}
+.badge-rel{background:#f1f5f9;color:#475569}
+#pagination{display:flex;gap:8px;justify-content:center;padding:10px;background:#fff;border-top:1px solid #e2e8f0}
+#pagination button{padding:4px 12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:12px}
+#pagination button:hover{background:#e2e8f0}
+#pagination button.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+/* --- Detail view --- */
+#detail-layout{max-width:1600px;margin:0 auto}
+.comparison-card{background:#fff;border-radius:8px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);width:100%;margin-bottom:16px}
+#comparisons-grid{display:flex;flex-direction:column;gap:14px}
+#detail-back{margin-bottom:12px}
+#detail-back button{padding:6px 12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:12px}
+#detail-top{display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:16px}
+.card{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card h2{font-size:15px;font-weight:600;margin-bottom:10px;color:#1e293b}
+.card h3{font-size:13px;font-weight:600;margin-bottom:8px;color:#475569}
+.prop-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px}
+.prop-grid .key{color:#64748b;white-space:nowrap;font-weight:500}
+.prop-grid .val{color:#1e293b;word-break:break-all}
+#structure-box{display:flex;align-items:center;justify-content:center;min-width:260px;min-height:210px;background:#fff;border-radius:8px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#structure-box svg{max-width:250px;max-height:200px}
+#structure-placeholder{color:#94a3b8;font-size:12px;text-align:center}
+#class-taxonomy{margin-bottom:16px}
+.taxonomy-chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.taxonomy-chain .arrow{color:#94a3b8}
+.taxonomy-node{padding:3px 10px;background:#e0f2fe;color:#0369a1;border-radius:12px;font-weight:500}
+#sources-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.source-card{border:1px solid #e2e8f0;border-radius:6px;padding:10px}
+.source-card h4{font-size:12px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.source-card .prop-grid{font-size:11px}
+#boxplots-section{margin-bottom:16px}
+#boxplots-grid{display:flex;flex-wrap:wrap;gap:12px}
+.boxplot-card{background:#fff;border-radius:8px;padding:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);flex:1;min-width:200px;max-width:360px}
+.boxplot-card h4{font-size:12px;font-weight:600;margin-bottom:4px;color:#374151}
+#iin-section{margin-bottom:16px}
+#iin-members-table{width:100%;border-collapse:collapse;font-size:12px}
+#iin-members-table th{background:#f8fafc;padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;font-weight:600}
+#iin-members-table td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
+#iin-members-table tr:hover{background:#f0f9ff;cursor:pointer}
+/* --- IIN view --- */
+#iin-layout{display:flex;gap:16px;height:calc(100vh - 100px)}
+#iin-sidebar{width:260px;flex-shrink:0;background:#fff;border-radius:8px;padding:12px;overflow-y:auto;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#iin-sidebar h3{font-size:13px;font-weight:600;color:#475569;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+#iin-list{list-style:none}
+#iin-list li{padding:8px;border-radius:5px;cursor:pointer;margin-bottom:4px;border:1px solid #e2e8f0;font-size:12px}
+#iin-list li:hover,#iin-list li.active{background:#e0f2fe;border-color:#7dd3fc}
+#iin-detail{flex:1;min-width:0;overflow-y:auto}
+.consistency-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:600}
+.consistent{background:#dcfce7;color:#15803d}
+.inconsistent{background:#fee2e2;color:#b91c1c}
+.insufficient{background:#f1f5f9;color:#64748b}
+</style>
+</head>
+<body>
+
+<script>const DATA = {{ data_json }};</script>
+
+<header>
+  <div>
+    <h1>MetabProject Explorer — {{ project_name }}</h1>
+    <div class="meta" id="header-meta"></div>
+  </div>
+</header>
+
+<div id="tabs">
+  <button class="tab-btn active" onclick="switchTab('list')">Feature List</button>
+  <button class="tab-btn" onclick="switchTab('detail')">Feature Detail</button>
+  <button class="tab-btn" onclick="switchTab('iin')">IIN Groups</button>
+  <button class="tab-btn" onclick="switchTab('normality')">Normality Visualization</button>
+  <button class="tab-btn" id="tab-network-btn" onclick="switchTab('network')">Network</button>
+</div>
+
+<!-- ====== LIST VIEW ====== -->
+<div id="view-list" class="view active">
+  <div id="list-layout">
+    <div id="filters">
+      <h3>Filters</h3>
+
+      <div class="filter-group">
+        <label>Feature ID</label>
+        <input type="text" id="f-feature-id" placeholder="e.g. 1234" oninput="applyFilters()">
+      </div>
+
+      <div class="filter-group">
+        <label>Compound name search</label>
+        <input type="text" id="f-name" placeholder="Search…" oninput="applyFilters()">
+      </div>
+
+      <div class="filter-group">
+        <label>Annotation source</label>
+        <div class="checkbox-group" id="f-sources"></div>
+      </div>
+
+      <div class="filter-group">
+        <label>Contrast (for significance)</label>
+        <select id="f-contrast" onchange="applyFilters()">
+          <option value="">— any —</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Max p_adj</label>
+        <input type="number" id="f-padj" value="1" min="0" max="1" step="0.01" oninput="applyFilters()">
+      </div>
+
+      <div class="filter-group">
+        <label>Direction (requires contrast)</label>
+        <select id="f-dir" onchange="applyFilters()">
+          <option value="">— any —</option>
+          <option value="up">up</option>
+          <option value="down">down</option>
+          <option value="ns">ns</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>NPC Pathway</label>
+        <select id="f-pathway" onchange="applyFilters()">
+          <option value="">— any —</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>NPC Class</label>
+        <select id="f-class" onchange="applyFilters()">
+          <option value="">— any —</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Comparison (factorial)</label>
+        <select id="f-comparison" onchange="onComparisonChange()">
+          <option value="">— any —</option>
+        </select>
+      </div>
+
+      <div class="filter-group" id="f-buckets-group" style="display:none">
+        <label>Classification (bucket)</label>
+        <div class="checkbox-group" id="f-buckets"></div>
+      </div>
+
+      <div class="filter-group">
+        <label>IIN members only</label>
+        <input type="checkbox" id="f-iin" onchange="applyFilters()">
+      </div>
+
+      <div class="filter-group" id="f-relations-group" style="display:none">
+        <label>Derived ions (isotope / adduct / in-source fragment)</label>
+        <select id="f-relations" onchange="applyFilters()">
+          <option value="">— all features —</option>
+          <option value="hide_isf">Hide confident in-source fragments</option>
+          <option value="only_isf">Only confident in-source fragments</option>
+          <option value="only_derived">Only derived ions (any)</option>
+          <option value="hide_derived">Hide derived ions (any)</option>
+        </select>
+      </div>
+
+      <button onclick="resetFilters()">Reset filters</button>
+    </div>
+
+    <div id="list-main">
+      <div id="results-bar"></div>
+      <div id="feature-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('feature_id')">ID</th>
+              <th onclick="sortBy('mz')">m/z</th>
+              <th onclick="sortBy('rt')">RT (min)</th>
+              <th>Compound</th>
+              <th>Source</th>
+              <th>Class</th>
+              <th onclick="sortBy('_log2fc')">log2FC</th>
+              <th onclick="sortBy('_padj')">p_adj</th>
+              <th>Direction</th>
+              <th>Bucket</th>
+            </tr>
+          </thead>
+          <tbody id="feature-tbody"></tbody>
+        </table>
+      </div>
+      <div id="pagination"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== DETAIL VIEW ====== -->
+<div id="view-detail" class="view">
+  <div id="detail-layout">
+    <div id="detail-back">
+      <button onclick="switchTab('list')">← Back to list</button>
+    </div>
+
+    <div id="detail-top">
+      <div class="card" id="annotation-card">
+        <h2 id="detail-title">Feature Detail</h2>
+        <div class="prop-grid" id="annotation-props"></div>
+      </div>
+      <div id="structure-box">
+        <div id="structure-placeholder">No structure</div>
+      </div>
+    </div>
+
+    <div id="class-taxonomy" class="card" style="display:none;margin-bottom:16px">
+      <h3>Compound Class Taxonomy</h3>
+      <div id="taxonomy-content"></div>
+    </div>
+
+    <div class="card" id="sources-section" style="display:none;margin-bottom:16px">
+      <h3>Annotation Sources</h3>
+      <div id="sources-grid"></div>
+    </div>
+
+    <div class="card" id="boxplots-section" style="display:none;margin-bottom:16px">
+      <h3>Expression across contrasts</h3>
+      <div id="boxplots-grid"></div>
+    </div>
+
+    <div class="card" id="ms2-section" style="display:none;margin-bottom:16px">
+      <h3>MS2 Spectrum</h3>
+      <div id="ms2-content"></div>
+    </div>
+
+    <div class="card" id="comparisons-section" style="display:none;margin-bottom:16px">
+      <h3>Factorial comparisons</h3>
+      <div id="comparisons-grid"></div>
+    </div>
+
+    <div class="card" id="relations-section" style="display:none;margin-bottom:16px">
+      <h3>Related ions</h3>
+      <div id="relations-content"></div>
+    </div>
+
+    <div class="card" id="iin-section" style="display:none;margin-bottom:16px">
+      <h3>Ion Identity Network</h3>
+      <div id="iin-content"></div>
+    </div>
+
+    <div class="card" id="network-section" style="display:none;margin-bottom:16px">
+      <h3>Molecular Network</h3>
+      <div id="network-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== IIN VIEW ====== -->
+<div id="view-iin" class="view">
+  <div id="iin-layout">
+    <div id="iin-sidebar">
+      <h3>IIN Groups</h3>
+      <div class="filter-group">
+        <input type="text" id="iin-search" placeholder="Search mass…" oninput="renderIINList()">
+      </div>
+      <ul id="iin-list"></ul>
+    </div>
+    <div id="iin-detail">
+      <div class="card" style="color:#94a3b8;font-size:13px;padding:40px;text-align:center">
+        Select an IIN group from the sidebar.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== NORMALITY VIEW ====== -->
+<div id="view-normality" class="view">
+  <div id="detail-layout">
+    <div style="margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:12px;color:#475569">Feature ID:</label>
+      <input type="text" id="norm-feature-input" placeholder="e.g. 1234"
+             style="padding:6px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px;width:140px">
+      <button onclick="loadNormalityFeature()"
+              style="padding:6px 12px;border:1px solid #3b82f6;background:#3b82f6;color:#fff;border-radius:5px;cursor:pointer;font-size:12px">
+        Load
+      </button>
+      <span id="norm-current" style="font-size:12px;color:#64748b"></span>
+    </div>
+    <div id="normality-content">
+      <div class="card" style="color:#94a3b8;font-size:13px;padding:40px;text-align:center">
+        Enter a feature ID above (or open a feature from the list / detail view).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== NETWORK VIEW ====== -->
+<div id="view-network" class="view">
+  <div id="iin-layout">
+    <div id="iin-sidebar">
+      <h3>Molecular Families</h3>
+      <div class="filter-group">
+        <input type="text" id="network-search" placeholder="Search id / compound…" oninput="renderNetworkList()">
+      </div>
+      <ul id="network-list"></ul>
+    </div>
+    <div id="network-detail">
+      <div class="card" style="color:#94a3b8;font-size:13px;padding:40px;text-align:center">
+        Select a molecular family from the sidebar, or open one from a feature's detail view.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+const STATE = {
+  tab: 'list',
+  currentFeatureId: null,
+  currentIINId: null,
+  currentComponentId: null,
+  filteredIds: [],
+  sortKey: 'feature_id',
+  sortAsc: true,
+  page: 0,
+  pageSize: 50,
+  filters: {
+    featureId: '',
+    name: '',
+    sources: new Set(),
+    contrast: '',
+    padj: 1,
+    dir: '',
+    pathway: '',
+    cls: '',
+    iin: false,
+    relations: '',
+    comparison: '',
+    buckets: new Set(),
+  }
+};
+
+// ============================================================
+// Initialise
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  const d = DATA;
+
+  // Header meta
+  document.getElementById('header-meta').textContent =
+    `${d.n_features.toLocaleString()} features · ${d.n_samples} samples · groups: ${d.groups.join(', ')}`;
+
+  // Populate filter dropdowns
+  const srcContainer = document.getElementById('f-sources');
+  const allSources = d.filter_options.annotation_sources || [];
+  allSources.forEach(src => {
+    const lbl = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = src; cb.checked = true;
+    cb.onchange = () => { applyFilters(); };
+    STATE.filters.sources.add(src);
+    lbl.appendChild(cb); lbl.append(' ' + src);
+    srcContainer.appendChild(lbl);
+  });
+
+  const contrastSel = document.getElementById('f-contrast');
+  (d.filter_options.contrast_names || []).forEach(c => {
+    const opt = new Option(c, c);
+    contrastSel.appendChild(opt);
+  });
+
+  const pathwaySel = document.getElementById('f-pathway');
+  (d.filter_options.npc_pathways || []).forEach(p => {
+    pathwaySel.appendChild(new Option(p, p));
+  });
+
+  const classSel = document.getElementById('f-class');
+  (d.filter_options.npc_classes || []).forEach(c => {
+    classSel.appendChild(new Option(c, c));
+  });
+
+  // Comparison + bucket filter
+  const cmpSel = document.getElementById('f-comparison');
+  const compsOpts = d.filter_options.comparisons || {};
+  Object.keys(compsOpts).sort().forEach(name => {
+    const meta = compsOpts[name];
+    const label = meta.kind ? `${name} (${meta.kind})` : name;
+    cmpSel.appendChild(new Option(label, name));
+  });
+
+  // Derived-ion filter — only when a feature-relations table was supplied.
+  if (Object.values(d.features).some(f => f.derived_from || (f.derived_ions || []).length)) {
+    document.getElementById('f-relations-group').style.display = '';
+  }
+
+  applyFilters();
+  renderIINList();
+
+  // Molecular network — hide the tab when no network was ingested.
+  if (Object.keys(DATA.network_components || {}).length === 0) {
+    document.getElementById('tab-network-btn').style.display = 'none';
+  } else {
+    renderNetworkList();
+  }
+});
+
+// ============================================================
+// Tab switching
+// ============================================================
+function switchTab(name) {
+  STATE.tab = name;
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    const names = ['list', 'detail', 'iin', 'normality', 'network'];
+    btn.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  if (name === 'detail' && STATE.currentFeatureId) {
+    renderDetail(STATE.currentFeatureId);
+  }
+  if (name === 'normality' && STATE.currentFeatureId) {
+    document.getElementById('norm-feature-input').value = STATE.currentFeatureId;
+    renderNormality(STATE.currentFeatureId);
+  }
+  if (name === 'network' && STATE.currentComponentId) {
+    renderNetworkDetail(STATE.currentComponentId);
+  }
+}
+
+// ============================================================
+// Filtering + sorting
+// ============================================================
+function readFilters() {
+  STATE.filters.featureId = document.getElementById('f-feature-id').value.trim();
+  STATE.filters.name = document.getElementById('f-name').value.toLowerCase();
+  STATE.filters.sources = new Set(
+    Array.from(document.querySelectorAll('#f-sources input:checked')).map(cb => cb.value)
+  );
+  STATE.filters.contrast = document.getElementById('f-contrast').value;
+  STATE.filters.padj = parseFloat(document.getElementById('f-padj').value) || 1;
+  STATE.filters.dir = document.getElementById('f-dir').value;
+  STATE.filters.pathway = document.getElementById('f-pathway').value;
+  STATE.filters.cls = document.getElementById('f-class').value;
+  STATE.filters.iin = document.getElementById('f-iin').checked;
+  STATE.filters.relations = document.getElementById('f-relations').value;
+  STATE.filters.comparison = document.getElementById('f-comparison').value;
+  STATE.filters.buckets = new Set(
+    Array.from(document.querySelectorAll('#f-buckets input:checked')).map(cb => cb.value)
+  );
+}
+
+function onComparisonChange() {
+  const name = document.getElementById('f-comparison').value;
+  const group = document.getElementById('f-buckets-group');
+  const container = document.getElementById('f-buckets');
+  container.innerHTML = '';
+  const compsOpts = (DATA.filter_options.comparisons || {});
+  const meta = name ? compsOpts[name] : null;
+  if (!meta || !(meta.classifications || []).length) {
+    group.style.display = 'none';
+  } else {
+    group.style.display = '';
+    meta.classifications.forEach(cls => {
+      const lbl = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = cls; cb.checked = false;
+      cb.onchange = applyFilters;
+      lbl.appendChild(cb); lbl.append(' ' + cls);
+      container.appendChild(lbl);
+    });
+  }
+  applyFilters();
+}
+
+function applyFilters() {
+  readFilters();
+  const f = STATE.filters;
+  const ids = [];
+  for (const [id, feat] of Object.entries(DATA.features)) {
+    const ann = feat.annotation || {};
+    const src = ann.annotation_source || '';
+
+    // Feature ID filter (substring match against feature_id).
+    if (f.featureId) {
+      if (!String(feat.feature_id).includes(f.featureId)) continue;
+    }
+
+    // Source filter
+    if (f.sources.size > 0) {
+      const srcParts = src ? src.split(':') : ['unannotated'];
+      const match = srcParts.some(s => f.sources.has(s)) ||
+                    (srcParts.length === 0 && f.sources.has('unannotated'));
+      if (!match) continue;
+    }
+
+    // Name filter
+    if (f.name) {
+      const cname = (ann.compound_name || '').toLowerCase();
+      if (!cname.includes(f.name)) continue;
+    }
+
+    // Pathway filter
+    if (f.pathway && !(ann.npc_pathway || '').split('|').includes(f.pathway)) continue;
+
+    // Class filter
+    if (f.cls && !(ann.npc_class || '').split('|').includes(f.cls)) continue;
+
+    // IIN filter
+    if (f.iin && !feat.iin) continue;
+
+    // Derived-ion filter
+    if (f.relations) {
+      const df = feat.derived_from;
+      const isf = !!(df && df.isf_confident);
+      if (f.relations === 'hide_isf' && isf) continue;
+      if (f.relations === 'only_isf' && !isf) continue;
+      if (f.relations === 'only_derived' && !df) continue;
+      if (f.relations === 'hide_derived' && df) continue;
+    }
+
+    // Contrast/p_adj/direction filter
+    if (f.contrast) {
+      const cs = feat.contrasts[f.contrast];
+      if (!cs) continue;
+      if (cs.p_adj !== null && cs.p_adj > f.padj) continue;
+      if (f.dir && cs.direction !== f.dir) continue;
+    }
+
+    // Comparison + bucket filter
+    if (f.comparison) {
+      const cmp = (feat.comparisons || {})[f.comparison];
+      if (!cmp) continue;
+      if (f.buckets.size > 0 && !f.buckets.has(cmp.classification)) continue;
+    }
+
+    ids.push(id);
+  }
+
+  // Sort
+  ids.sort((a, b) => {
+    const fa = DATA.features[a];
+    const fb = DATA.features[b];
+    let va, vb;
+    if (STATE.sortKey === '_log2fc') {
+      va = (fa.contrasts[STATE.filters.contrast] || {}).log2fc;
+      vb = (fb.contrasts[STATE.filters.contrast] || {}).log2fc;
+    } else if (STATE.sortKey === '_padj') {
+      va = (fa.contrasts[STATE.filters.contrast] || {}).p_adj;
+      vb = (fb.contrasts[STATE.filters.contrast] || {}).p_adj;
+    } else {
+      va = fa[STATE.sortKey];
+      vb = fb[STATE.sortKey];
+    }
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return STATE.sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+
+  STATE.filteredIds = ids;
+  STATE.page = 0;
+  renderTable();
+}
+
+function sortBy(key) {
+  if (STATE.sortKey === key) STATE.sortAsc = !STATE.sortAsc;
+  else { STATE.sortKey = key; STATE.sortAsc = true; }
+  applyFilters();
+}
+
+function resetFilters() {
+  document.getElementById('f-feature-id').value = '';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-contrast').value = '';
+  document.getElementById('f-padj').value = '1';
+  document.getElementById('f-dir').value = '';
+  document.getElementById('f-pathway').value = '';
+  document.getElementById('f-class').value = '';
+  document.getElementById('f-iin').checked = false;
+  document.getElementById('f-relations').value = '';
+  document.getElementById('f-comparison').value = '';
+  document.getElementById('f-buckets-group').style.display = 'none';
+  document.getElementById('f-buckets').innerHTML = '';
+  document.querySelectorAll('#f-sources input').forEach(cb => cb.checked = true);
+  applyFilters();
+}
+
+// ============================================================
+// Feature table rendering
+// ============================================================
+function renderTable() {
+  const ids = STATE.filteredIds;
+  const start = STATE.page * STATE.pageSize;
+  const pageIds = ids.slice(start, start + STATE.pageSize);
+  const contrast = STATE.filters.contrast;
+
+  document.getElementById('results-bar').textContent =
+    `${ids.length.toLocaleString()} features${contrast ? ' · contrast: ' + contrast : ''}`;
+
+  const tbody = document.getElementById('feature-tbody');
+  tbody.innerHTML = '';
+  pageIds.forEach(id => {
+    const f = DATA.features[id];
+    const ann = f.annotation || {};
+    const cs = contrast ? (f.contrasts[contrast] || {}) : {};
+    const tr = document.createElement('tr');
+    tr.onclick = () => openFeature(id);
+
+    const srcParts = ann.annotation_source ? ann.annotation_source.split(':') : [];
+    const srcBadges = srcParts.map(s => `<span class="badge badge-${s}">${s}</span>`).join('');
+
+    const dirBadge = cs.direction
+      ? `<span class="badge badge-${cs.direction}">${cs.direction}</span>` : '';
+    const sigBadge = cs.significant ? '<span class="badge badge-sig">*</span>' : '';
+
+    const cmpName = STATE.filters.comparison;
+    const cmpRow = cmpName ? ((f.comparisons || {})[cmpName] || {}) : {};
+    const bucket = cmpRow.classification || '';
+    const bucketBadge = bucket
+      ? `<span class="badge badge-bucket" title="${cmpName}">${bucket}</span>` : '';
+
+    tr.innerHTML = `
+      <td>${f.feature_id}</td>
+      <td>${f.mz != null ? f.mz.toFixed(4) : ''}</td>
+      <td>${f.rt != null ? f.rt.toFixed(2) : ''}</td>
+      <td title="${ann.compound_name || ''}">${relationBadge(f)}${ann.compound_name || '<em style="color:#94a3b8">—</em>'}</td>
+      <td>${srcBadges || '<span style="color:#94a3b8;font-size:11px">—</span>'}</td>
+      <td title="${ann.npc_class || ''}">${truncate(ann.npc_class, 22)}</td>
+      <td>${cs.log2fc != null ? cs.log2fc.toFixed(2) : ''}</td>
+      <td>${cs.p_adj != null ? cs.p_adj.toExponential(1) : ''}</td>
+      <td>${dirBadge}${sigBadge}</td>
+      <td>${bucketBadge}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  renderPagination(ids.length);
+}
+
+// ============================================================
+// Derived ions (isotopes / adducts / in-source fragments)
+// ============================================================
+const ROLE_LABEL = {loss: 'in-source fragment', isotope: 'isotope', adduct: 'adduct'};
+
+function relationBadge(f) {
+  const d = f.derived_from;
+  if (!d) return '';
+  if (d.isf_confident) return `<span class="badge badge-isf" title="confident in-source fragment of ${d.feature_id} (${d.relation})">ISF→${d.feature_id}</span>`;
+  return `<span class="badge badge-rel" title="${ROLE_LABEL[d.role] || d.role} of ${d.feature_id} (${d.relation})">${d.role}→${d.feature_id}</span>`;
+}
+
+function featureLink(fid, inTable) {
+  if (!inTable) return `${fid} <em style="color:#94a3b8">(not in table)</em>`;
+  const name = ((DATA.features[String(fid)] || {}).annotation || {}).compound_name;
+  return `<a href="#" onclick="openFeature('${fid}');return false">${fid}</a>${name ? ' · ' + truncate(name, 40) : ''}`;
+}
+
+function fmtOpt(v, digits) { return v == null ? '—' : Number(v).toFixed(digits); }
+
+function renderRelations(f) {
+  const section = document.getElementById('relations-section');
+  const content = document.getElementById('relations-content');
+  const d = f.derived_from;
+  const kids = f.derived_ions || [];
+  if (!d && !kids.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  let html = '';
+  if (d) {
+    const verdict = d.role !== 'loss' ? '' : (d.isf_confident
+      ? '<span class="badge badge-isf">confident in-source fragment</span>'
+      : '<span class="badge badge-rel">in-source fragment (not confirmed)</span>');
+    html += `
+      <div style="margin-bottom:8px">This feature is a <b>${ROLE_LABEL[d.role] || d.role}</b> of feature ${featureLink(d.feature_id, d.in_table)} ${verdict}</div>
+      <div class="prop-grid" style="margin-bottom:12px">
+        <div class="key">Relation</div><div class="val">${d.relation}</div>
+        <div class="key">MZmine correlation r</div><div class="val">${fmtOpt(d.r, 3)}</div>
+        ${d.role === 'loss' ? `
+        <div class="key">Fragment in parent MS2</div><div class="val">${d.ms2_support == null ? 'no parent MS2' : (d.ms2_support ? 'yes' : 'no')}</div>
+        <div class="key">Across-sample r</div><div class="val">${fmtOpt(d.r_samples, 2)}</div>
+        <div class="key">Fragment/parent ratio CV</div><div class="val">${fmtOpt(d.ratio_cv, 2)}</div>` : ''}
+      </div>`;
+  }
+  if (kids.length) {
+    html += `<div style="margin-bottom:6px">Ions derived from this feature:</div>
+      <table><thead><tr><th>Feature</th><th>Type</th><th>Relation</th><th>r</th><th>Confident ISF</th></tr></thead><tbody>`;
+    kids.forEach(k => {
+      html += `<tr><td>${featureLink(k.feature_id, k.in_table)}</td><td>${ROLE_LABEL[k.role] || k.role}</td>
+        <td>${k.relation}</td><td>${fmtOpt(k.r, 2)}</td><td>${k.role === 'loss' ? (k.isf_confident ? 'yes' : 'no') : ''}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  content.innerHTML = html;
+}
+
+function renderPagination(total) {
+  const nPages = Math.ceil(total / STATE.pageSize);
+  const pg = document.getElementById('pagination');
+  pg.innerHTML = '';
+  if (nPages <= 1) return;
+
+  const mkBtn = (label, page) => {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.className = page === STATE.page ? 'active' : '';
+    btn.onclick = () => { STATE.page = page; renderTable(); };
+    pg.appendChild(btn);
+  };
+
+  mkBtn('«', 0);
+  if (STATE.page > 1) mkBtn('…', Math.max(0, STATE.page - 2));
+  for (let p = Math.max(0, STATE.page - 1); p <= Math.min(nPages - 1, STATE.page + 1); p++) {
+    mkBtn(p + 1, p);
+  }
+  if (STATE.page < nPages - 2) mkBtn('…', Math.min(nPages - 1, STATE.page + 2));
+  mkBtn('»', nPages - 1);
+}
+
+function truncate(s, n) {
+  if (!s) return '';
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+// ============================================================
+// Feature detail view
+// ============================================================
+function openFeature(id) {
+  STATE.currentFeatureId = id;
+  switchTab('detail');
+}
+
+function renderDetail(id) {
+  const f = DATA.features[id];
+  if (!f) return;
+  const ann = f.annotation || {};
+
+  // Title
+  document.getElementById('detail-title').textContent =
+    ann.compound_name || `Feature ${f.feature_id}`;
+
+  // Annotation card
+  const props = document.getElementById('annotation-props');
+  props.innerHTML = '';
+  const propRows = [
+    ['Feature ID', f.feature_id],
+    ['m/z', f.mz != null ? f.mz.toFixed(4) : '—'],
+    ['RT (min)', f.rt != null ? f.rt.toFixed(2) : '—'],
+    ['Charge', f.charge != null ? f.charge : '—'],
+    ['Annotation source', ann.annotation_source || '—'],
+    ['Confidence', ann.confidence != null ? ann.confidence.toFixed(3) : '—'],
+    ['Molecular formula', ann.mol_formula || '—'],
+    ['Adduct', ann.adduct || '—'],
+    ['InChIKey (2D)', ann.inchikey2d || '—'],
+    ['SMILES', ann.smiles ? truncate(ann.smiles, 60) : '—'],
+    ['InChIKey agreement', ann.inchikey_agreement || '—'],
+  ];
+  propRows.forEach(([k, v]) => {
+    const dk = document.createElement('div'); dk.className = 'key'; dk.textContent = k;
+    const dv = document.createElement('div'); dv.className = 'val'; dv.textContent = v;
+    props.appendChild(dk); props.appendChild(dv);
+  });
+
+  // Structure
+  const structBox = document.getElementById('structure-box');
+  const structPlaceholder = document.getElementById('structure-placeholder');
+  if (f.structure_svg) {
+    structBox.innerHTML = f.structure_svg;
+  } else {
+    structBox.innerHTML = '';
+    const ph = document.createElement('div');
+    ph.id = 'structure-placeholder';
+    ph.textContent = ann.smiles ? 'RDKit not available' : 'No structure';
+    ph.style.cssText = 'color:#94a3b8;font-size:12px;text-align:center';
+    structBox.appendChild(ph);
+  }
+
+  // Taxonomy
+  const taxCard = document.getElementById('class-taxonomy');
+  const taxContent = document.getElementById('taxonomy-content');
+  const hasTax = ann.npc_pathway || ann.npc_superclass || ann.npc_class || ann.classyfire_class;
+  if (hasTax) {
+    taxCard.style.display = '';
+    const chain = document.createElement('div');
+    chain.className = 'taxonomy-chain';
+    const nodes = [
+      ['Pathway', ann.npc_pathway],
+      ['Superclass', ann.npc_superclass],
+      ['Class', ann.npc_class],
+      ['ClassyFire', ann.classyfire_class],
+    ].filter(([, v]) => v);
+    nodes.forEach(([label, val], i) => {
+      if (i > 0) {
+        const arr = document.createElement('span');
+        arr.className = 'arrow'; arr.textContent = '›';
+        chain.appendChild(arr);
+      }
+      const node = document.createElement('span');
+      node.className = 'taxonomy-node';
+      node.title = label;
+      node.textContent = val;
+      chain.appendChild(node);
+    });
+    taxContent.innerHTML = '';
+    taxContent.appendChild(chain);
+  } else {
+    taxCard.style.display = 'none';
+  }
+
+  // Sources
+  const srcSection = document.getElementById('sources-section');
+  const srcGrid = document.getElementById('sources-grid');
+  srcGrid.innerHTML = '';
+  const sources = f.sources || {};
+  const hasAnySrc = Object.values(sources).some(v => v != null);
+  if (hasAnySrc) {
+    srcSection.style.display = '';
+    const srcDefs = {
+      gnps: { label: 'GNPS Library', cls: 'badge-gnps', fields: ['gnps_compound_name','gnps_MQScore','gnps_npc_pathway','gnps_npc_class'] },
+      sirius: { label: 'SIRIUS', cls: 'badge-sirius', fields: ['sirius_compound_name','sirius_confidence','sirius_mol_formula','sirius_adduct','sirius_high_confidence','sirius_databases'] },
+      canopus: { label: 'CANOPUS', cls: 'badge-canopus', fields: ['canopus_npc_pathway','canopus_npc_pathway_probability','canopus_npc_class','canopus_npc_class_probability'] },
+      suspect: { label: 'Suspect List', cls: 'badge-suspect', fields: ['suspect_compound_name','suspect_adduct','suspect_delta_mz'] },
+    };
+    Object.entries(srcDefs).forEach(([key, def]) => {
+      const srcData = sources[key];
+      const div = document.createElement('div');
+      div.className = 'source-card';
+      const present = srcData != null;
+      div.innerHTML = `<h4><span class="badge ${def.cls}">${def.label}</span>${present ? '' : '<span style="color:#94a3b8;font-size:11px">not found</span>'}</h4>`;
+      if (present) {
+        const pg = document.createElement('div');
+        pg.className = 'prop-grid';
+        def.fields.forEach(f2 => {
+          if (!(f2 in srcData)) return;
+          const v = srcData[f2];
+          if (v == null) return;
+          if (Array.isArray(v) && v.length === 0) return;
+          const k = document.createElement('div'); k.className = 'key';
+          k.textContent = f2.replace(/^(gnps_|sirius_|canopus_|suspect_)/, '').replace(/_/g, ' ');
+          const vd = document.createElement('div'); vd.className = 'val';
+          if (Array.isArray(v)) {
+            vd.innerHTML = v.map(s => '<span class="badge" style="background:#f1f5f9;color:#334155;margin:1px 4px 1px 0">' + String(s) + '</span>').join('');
+          } else {
+            vd.textContent = typeof v === 'number' ? v.toFixed(4) : String(v);
+          }
+          pg.appendChild(k); pg.appendChild(vd);
+        });
+        div.appendChild(pg);
+      }
+      srcGrid.appendChild(div);
+    });
+  } else {
+    srcSection.style.display = 'none';
+  }
+
+  // Boxplots
+  const bpSection = document.getElementById('boxplots-section');
+  const bpGrid = document.getElementById('boxplots-grid');
+  bpGrid.innerHTML = '';
+  const contrastsData = f.contrasts || {};
+  if (Object.keys(contrastsData).length > 0) {
+    bpSection.style.display = '';
+    Object.keys(contrastsData).forEach(contrastName => {
+      const cs = contrastsData[contrastName];
+      const meta = DATA.contrasts_meta[contrastName];
+      if (!meta) return;
+
+      const card = document.createElement('div');
+      card.className = 'boxplot-card';
+      const divId = 'bp-' + contrastName.replace(/\W/g, '_') + '-' + id;
+      card.innerHTML = `<h4>${contrastName}</h4><div id="${divId}" style="height:250px"></div>`;
+      bpGrid.appendChild(card);
+
+      // Build traces from abundances
+      const abundances = f.abundances || {};
+      const valsA = (meta.samples_a || []).map(s => abundances[s]).filter(v => v != null);
+      const valsB = (meta.samples_b || []).map(s => abundances[s]).filter(v => v != null);
+
+      const colorA = paletteColor(meta.group_a, 0);
+      const colorB = paletteColor(meta.group_b, 1);
+
+      const traces = [
+        { y: valsA, name: meta.group_a || 'A', type: 'box', boxpoints: 'all',
+          jitter: 0.3, pointpos: 0, marker: { color: colorA, size: 5 },
+          line: { color: colorA }, fillcolor: colorA + '44' },
+        { y: valsB, name: meta.group_b || 'B', type: 'box', boxpoints: 'all',
+          jitter: 0.3, pointpos: 0, marker: { color: colorB, size: 5 },
+          line: { color: colorB }, fillcolor: colorB + '44' },
+      ];
+
+      let titleParts = [];
+      if (cs.log2fc != null) titleParts.push('log2FC=' + cs.log2fc.toFixed(2));
+      if (cs.p_adj != null) titleParts.push('p<sub>adj</sub>=' + cs.p_adj.toExponential(1));
+      if (cs.significant) titleParts.push('*');
+
+      Plotly.newPlot(divId, traces, {
+        title: { text: titleParts.join('  '), font: { size: 11 } },
+        margin: { t: 30, b: 30, l: 40, r: 10 },
+        height: 250,
+        showlegend: true,
+        legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 11 } },
+        yaxis: { title: 'Abundance', titlefont: { size: 10 }, tickfont: { size: 10 } },
+        xaxis: { tickfont: { size: 10 } },
+        plot_bgcolor: '#fff',
+        paper_bgcolor: '#fff',
+      }, { displayModeBar: false, responsive: true });
+    });
+  } else {
+    bpSection.style.display = 'none';
+  }
+
+  // MS2 spectrum
+  const ms2Section = document.getElementById('ms2-section');
+  const ms2Content = document.getElementById('ms2-content');
+  if (f.ms2 && f.ms2.mz && f.ms2.mz.length) {
+    ms2Section.style.display = '';
+    const specParts = [];
+    if (f.ms2.precursor_mz != null) specParts.push('precursor m/z ' + f.ms2.precursor_mz.toFixed(4));
+    specParts.push('charge ' + (f.ms2.precursor_charge != null ? f.ms2.precursor_charge : 1));
+    specParts.push(f.ms2.n_peaks + ' peaks');
+    const specDivId = 'ms2-plot-' + id;
+    ms2Content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div style="font-size:12px;color:#64748b">${specParts.join('  |  ')}</div>
+        <button onclick="copySpectrumPeaks('${id}', this)" title="Copy m/z + intensity peak list for a GNPS2 FASST search" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:12px">Copy peaks</button>
+      </div>
+      <div id="${specDivId}" style="height:300px"></div>`;
+    renderFeatureSpectrum(id, specDivId);
+  } else {
+    ms2Section.style.display = 'none';
+  }
+
+  // Factorial comparisons
+  renderComparisons(f, id);
+
+  renderRelations(f);
+
+  // IIN section
+  const iinSection = document.getElementById('iin-section');
+  const iinContent = document.getElementById('iin-content');
+  const iinMem = f.iin;
+  if (iinMem) {
+    iinSection.style.display = '';
+    const group = DATA.iin_groups[String(iinMem.iin_id)];
+    if (group) {
+      let html = `
+        <div class="prop-grid" style="margin-bottom:10px">
+          <div class="key">IIN Group</div><div class="val">${group.iin_id}</div>
+          <div class="key">Neutral mass</div><div class="val">${group.neutral_mass != null ? group.neutral_mass.toFixed(4) + ' Da' : '—'}</div>
+          <div class="key">Members</div><div class="val">${group.n_features}</div>
+          <div class="key">This ion</div><div class="val">${iinMem.ion_identity || '—'}</div>
+        </div>
+        <button onclick="openIINGroup(${group.iin_id})" style="margin-bottom:10px;padding:4px 12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:12px">View full IIN group →</button>
+        <table id="iin-members-table">
+          <thead><tr><th>Feature ID</th><th>Ion</th><th>Compound</th><th>Source</th></tr></thead>
+          <tbody>
+      `;
+      group.members.forEach(m => {
+        html += `<tr onclick="openFeature('${m.feature_id}')">
+          <td>${m.feature_id}${m.feature_id === f.feature_id ? ' <em>(this)</em>' : ''}</td>
+          <td>${m.ion_identity || '—'}</td>
+          <td>${truncate(m.compound_name, 30) || '—'}</td>
+          <td>${m.annotation_source || '—'}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      iinContent.innerHTML = html;
+    } else {
+      iinContent.innerHTML = `<div>IIN group ${iinMem.iin_id} — ion: ${iinMem.ion_identity || '—'}</div>`;
+    }
+  } else {
+    iinSection.style.display = 'none';
+  }
+
+  // Molecular-network section
+  const netSection = document.getElementById('network-section');
+  const netContent = document.getElementById('network-content');
+  const netMem = f.network;
+  if (netMem) {
+    const comp = (DATA.network_components || {})[String(netMem.component_id)];
+    netSection.style.display = '';
+    netContent.innerHTML = `
+      <div class="prop-grid" style="margin-bottom:10px">
+        <div class="key">Family</div><div class="val">${netMem.component_id}</div>
+        <div class="key">Members</div><div class="val">${netMem.n_component_members}</div>
+        <div class="key">This node degree</div><div class="val">${netMem.degree}</div>
+      </div>
+      <button onclick="openNetwork(${netMem.component_id})" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:12px">View molecular network →</button>
+    `;
+  } else {
+    netSection.style.display = 'none';
+  }
+}
+
+// ============================================================
+// Factorial comparisons (anova_1way / anova_2way / welch_anova / kruskal)
+// ============================================================
+const COMPARISON_PALETTE = [
+  '#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa',
+  '#f472b6', '#22d3ee', '#fb923c', '#94a3b8',
+];
+
+// Resolve a project-palette colour for a label (case-insensitive, trimmed
+// against project palette keys), falling back to the indexed default.
+function paletteColor(label, fallbackIdx) {
+  const proj = DATA.palette || {};
+  if (label != null) {
+    const key = String(label);
+    if (proj[key]) return proj[key];
+    const lower = key.toLowerCase();
+    for (const k of Object.keys(proj)) {
+      if (k.toLowerCase() === lower) return proj[k];
+    }
+  }
+  return COMPARISON_PALETTE[(fallbackIdx || 0) % COMPARISON_PALETTE.length];
+}
+
+function fmtP(p) {
+  if (p == null || Number.isNaN(p)) return '—';
+  if (p < 1e-3) return p.toExponential(1);
+  return p.toFixed(3);
+}
+
+function renderComparisons(f, id) {
+  const section = document.getElementById('comparisons-section');
+  const grid = document.getElementById('comparisons-grid');
+  grid.innerHTML = '';
+  const compsMeta = DATA.comparisons_meta || {};
+  const featComps = f.comparisons || {};
+  const names = Object.keys(featComps).filter(n => compsMeta[n]);
+  if (names.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  names.forEach(name => {
+    const meta = compsMeta[name];
+    const data = featComps[name];
+    const factors = meta.factors || [];
+    const card = document.createElement('div');
+    card.className = 'comparison-card';
+
+    // Header: kind + classification badge + per-term p-value chips
+    const headerParts = [`<h4 style="margin:0 0 6px 0">${name} <span style="color:#64748b;font-weight:400;font-size:11px">(${meta.kind || ''})</span></h4>`];
+    const chips = [];
+    if (data.classification) {
+      const cls = String(data.classification);
+      const goodCls = cls !== 'ns' && cls !== 'unknown';
+      chips.push(`<span class="consistency-badge ${goodCls ? 'consistent' : 'inconsistent'}">${cls}</span>`);
+    }
+    factors.forEach(fac => {
+      const t = (data.terms || {})[fac];
+      if (!t) return;
+      const sig = t.sig === true;
+      chips.push(`<span class="badge" style="background:${sig ? '#dcfce7' : '#f1f5f9'};color:${sig ? '#166534' : '#475569'}">p<sub>${fac}</sub> = ${fmtP(t.p_adj != null ? t.p_adj : t.p)}${sig ? ' *' : ''}</span>`);
+    });
+    if (data.interaction) {
+      const ix = data.interaction;
+      const sig = ix.sig === true;
+      chips.push(`<span class="badge" style="background:${sig ? '#dcfce7' : '#f1f5f9'};color:${sig ? '#166534' : '#475569'}">p<sub>interaction</sub> = ${fmtP(ix.p_adj != null ? ix.p_adj : ix.p)}${sig ? ' *' : ''}</span>`);
+    }
+    headerParts.push(`<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">${chips.join('')}</div>`);
+
+    const divId = 'cmp-' + name.replace(/\W/g, '_') + '-' + id;
+    headerParts.push(`<div id="${divId}" style="height:440px;width:100%"></div>`);
+
+    // Post-hoc table container.
+    const tableId = 'cmp-ph-' + name.replace(/\W/g, '_') + '-' + id;
+    const phRows = data.posthoc || [];
+    if (phRows.length > 0) {
+      headerParts.push(`
+        <div style="margin-top:10px">
+          <label style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="${tableId}-toggle"> Show non-significant pairs
+          </label>
+          <div id="${tableId}-wrap" style="margin-top:6px;max-height:200px;overflow:auto"></div>
+        </div>
+      `);
+    }
+    card.innerHTML = headerParts.join('');
+    grid.appendChild(card);
+
+    // Build grouped boxplot.
+    // For 2-way: x-axis = second factor (e.g. treatment),
+    // color   = first factor (e.g. variety).
+    const abundances = f.abundances || {};
+    const sampleFactors = meta.sample_factors || {};
+    const levels = meta.levels || {};
+    const factor1 = factors[0];
+    const factor2 = factors[1] || null;
+    const xFactor = factor2 || factor1;
+    const colorFactor = factor2 ? factor1 : null;
+    const xLevels = (xFactor && levels[xFactor]) || [];
+    const colorLevels = colorFactor ? (levels[colorFactor] || []) : [null];
+
+    const traces = [];
+    colorLevels.forEach((cLvl, j) => {
+      const xs = [];
+      const ys = [];
+      Object.entries(sampleFactors).forEach(([sample, fmap]) => {
+        const v = abundances[sample];
+        if (v == null) return;
+        const xVal = fmap[xFactor];
+        if (xFactor && xVal == null) return;
+        if (colorFactor) {
+          if (fmap[colorFactor] !== cLvl) return;
+        }
+        xs.push(xVal);
+        ys.push(v);
+      });
+      const color = paletteColor(cLvl, j);
+      traces.push({
+        x: xs,
+        y: ys,
+        name: cLvl != null ? String(cLvl) : (xFactor || 'value'),
+        type: 'box',
+        boxpoints: 'all',
+        jitter: 0.4,
+        pointpos: 0,
+        marker: { color, size: 5 },
+        line: { color },
+        fillcolor: color + '44',
+      });
+    });
+
+    Plotly.newPlot(divId, traces, {
+      margin: { t: 10, b: 50, l: 55, r: 10 },
+      height: 440,
+      boxmode: 'group',
+      showlegend: colorFactor != null,
+      legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 11 } },
+      yaxis: { title: 'Abundance', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      xaxis: {
+        title: xFactor || '',
+        titlefont: { size: 11 },
+        tickfont: { size: 10 },
+        categoryorder: 'array',
+        categoryarray: xLevels,
+      },
+      plot_bgcolor: '#fff',
+      paper_bgcolor: '#fff',
+    }, { displayModeBar: false, responsive: true });
+
+    // Render post-hoc table with toggle.
+    if (phRows.length > 0) {
+      const wrap = document.getElementById(tableId + '-wrap');
+      const toggle = document.getElementById(tableId + '-toggle');
+      const draw = (showAll) => {
+        const rows = phRows.filter(r => showAll || r.significant === true);
+        if (rows.length === 0) {
+          wrap.innerHTML = '<div style="color:#94a3b8;font-size:11px;padding:6px">No significant post-hoc pairs.</div>';
+          return;
+        }
+        let html = '<table style="font-size:11px;width:100%"><thead><tr>'
+          + '<th>Factor</th><th>A</th><th>B</th><th>diff</th><th>p</th><th>p<sub>adj</sub></th><th>g</th><th></th>'
+          + '</tr></thead><tbody>';
+        rows.forEach(r => {
+          html += `<tr>
+            <td>${r.factor || '—'}</td>
+            <td>${r.group_A || '—'}</td>
+            <td>${r.group_B || '—'}</td>
+            <td>${r.diff != null ? r.diff.toFixed(2) : '—'}</td>
+            <td>${fmtP(r.p_value)}</td>
+            <td>${fmtP(r.p_adj)}</td>
+            <td>${r.hedges_g != null ? r.hedges_g.toFixed(2) : '—'}</td>
+            <td>${r.significant ? '<span class="badge badge-sig">*</span>' : ''}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        wrap.innerHTML = html;
+      };
+      draw(false);
+      toggle.addEventListener('change', () => draw(toggle.checked));
+    }
+  });
+}
+
+// ============================================================
+// IIN Group view
+// ============================================================
+function renderIINList() {
+  const query = (document.getElementById('iin-search').value || '').toLowerCase();
+  const ul = document.getElementById('iin-list');
+  ul.innerHTML = '';
+  const groups = DATA.iin_groups || {};
+  Object.values(groups)
+    .filter(g => !query || String(g.neutral_mass || '').includes(query) || String(g.iin_id).includes(query))
+    .sort((a, b) => a.iin_id - b.iin_id)
+    .forEach(g => {
+      const li = document.createElement('li');
+      li.dataset.iinId = g.iin_id;
+      li.className = STATE.currentIINId === String(g.iin_id) ? 'active' : '';
+      li.innerHTML = `<strong>Group ${g.iin_id}</strong> &nbsp; ${g.n_features} members<br>
+        <span style="color:#64748b">${g.neutral_mass != null ? g.neutral_mass.toFixed(4) + ' Da' : ''}</span>`;
+      li.onclick = () => openIINGroup(g.iin_id);
+      ul.appendChild(li);
+    });
+}
+
+function openIINGroup(id) {
+  STATE.currentIINId = String(id);
+  switchTab('iin');
+  renderIINList();
+  renderIINDetail(STATE.currentIINId);
+}
+
+function renderIINDetail(id) {
+  const group = DATA.iin_groups[id];
+  const container = document.getElementById('iin-detail');
+  if (!group) {
+    container.innerHTML = '<div class="card" style="color:#94a3b8;font-size:13px;padding:40px;text-align:center">Group not found.</div>';
+    return;
+  }
+
+  // Consistency summary
+  const annC = group.annotation_consistent;
+  const annBadge = annC === true
+    ? '<span class="consistency-badge consistent">✓ consistent</span>'
+    : annC === false
+    ? '<span class="consistency-badge inconsistent">✗ inconsistent</span>'
+    : '<span class="consistency-badge insufficient">— insufficient data</span>';
+
+  let trendBadges = '';
+  Object.entries(group.trend_consistent || {}).forEach(([c, v]) => {
+    const b = v === true
+      ? '<span class="consistency-badge consistent">✓</span>'
+      : v === false
+      ? '<span class="consistency-badge inconsistent">✗</span>'
+      : '<span class="consistency-badge insufficient">—</span>';
+    trendBadges += `<span style="font-size:12px">${c}: ${b}</span> `;
+  });
+
+  let html = `
+    <div class="card" style="margin-bottom:12px">
+      <h2>IIN Group ${group.iin_id}</h2>
+      <div class="prop-grid" style="margin-bottom:10px">
+        <div class="key">Neutral mass</div><div class="val">${group.neutral_mass != null ? group.neutral_mass.toFixed(4) + ' Da' : '—'}</div>
+        <div class="key">Members</div><div class="val">${group.n_features}</div>
+        <div class="key">Adducts</div><div class="val">${group.ion_identities.join(', ') || '—'}</div>
+        <div class="key">Annotation consistency</div><div class="val">${annBadge}</div>
+        ${trendBadges ? '<div class="key">Trend consistency</div><div class="val">' + trendBadges + '</div>' : ''}
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
+        <thead>
+          <tr style="background:#f8fafc">
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Feature ID</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Ion</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Compound</th>
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Source</th>
+            ${Object.keys(group.trend_consistent || {}).map(c => `<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">${c}<br><small>log2FC / dir</small></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  group.members.forEach(m => {
+    const contrastCols = Object.keys(group.trend_consistent || {}).map(c => {
+      const cs = (m.contrasts || {})[c] || {};
+      const l = cs.log2fc != null ? cs.log2fc.toFixed(2) : '—';
+      const d = cs.direction || '';
+      const badge = d ? `<span class="badge badge-${d}">${d}</span>` : '';
+      return `<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${l} ${badge}</td>`;
+    }).join('');
+
+    html += `<tr onclick="openFeature('${m.feature_id}')" style="cursor:pointer" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.feature_id}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.ion_identity || '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${truncate(m.compound_name, 30) || '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.annotation_source || '—'}</td>
+      ${contrastCols}
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  html += '</div>';
+
+  // Boxplots for all members side by side, per contrast
+  const contrastNames = Object.keys(DATA.contrasts_meta || {});
+  if (contrastNames.length > 0) {
+    html += '<div class="card"><h3>Contrasts — all members</h3>';
+    contrastNames.forEach(contrastName => {
+      const meta = DATA.contrasts_meta[contrastName];
+      if (!meta) return;
+      const divId = 'iinbp-' + contrastName.replace(/\W/g, '_') + '-' + id;
+      html += `<h4 style="margin:10px 0 4px;font-size:13px">${contrastName}</h4><div id="${divId}" style="height:280px;margin-bottom:10px"></div>`;
+    });
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+
+  // Render Plotly traces after DOM is inserted
+  contrastNames.forEach(contrastName => {
+    const meta = DATA.contrasts_meta[contrastName];
+    if (!meta) return;
+    const divId = 'iinbp-' + contrastName.replace(/\W/g, '_') + '-' + id;
+    const el = document.getElementById(divId);
+    if (!el) return;
+
+    const fallbackPalette = ['#60a5fa','#f87171','#34d399','#fbbf24','#a78bfa','#fb923c'];
+    const traces = [];
+
+    group.members.forEach((m, idx) => {
+      const f = DATA.features[String(m.feature_id)];
+      if (!f) return;
+      const abundances = f.abundances || {};
+      const color = fallbackPalette[idx % fallbackPalette.length];
+
+      const valsA = (meta.samples_a || []).map(s => abundances[s]).filter(v => v != null);
+      const valsB = (meta.samples_b || []).map(s => abundances[s]).filter(v => v != null);
+      const label = m.ion_identity || `F${m.feature_id}`;
+
+      traces.push({
+        y: valsA, x: Array(valsA.length).fill(label + ' / ' + (meta.group_a || 'A')),
+        name: label + ' A', type: 'box', boxpoints: 'all',
+        jitter: 0.3, pointpos: 0, marker: { color, size: 4, opacity: 0.6 },
+        line: { color }, fillcolor: color + '44',
+      });
+      traces.push({
+        y: valsB, x: Array(valsB.length).fill(label + ' / ' + (meta.group_b || 'B')),
+        name: label + ' B', type: 'box', boxpoints: 'all',
+        jitter: 0.3, pointpos: 0, marker: { color, size: 4, opacity: 0.9 },
+        line: { color, dash: 'dot' }, fillcolor: color + '22',
+      });
+    });
+
+    Plotly.newPlot(divId, traces, {
+      margin: { t: 10, b: 60, l: 40, r: 10 },
+      height: 280,
+      showlegend: false,
+      yaxis: { titlefont: { size: 10 }, tickfont: { size: 10 } },
+      xaxis: { tickfont: { size: 9 } },
+      plot_bgcolor: '#fff',
+      paper_bgcolor: '#fff',
+    }, { displayModeBar: false, responsive: true });
+  });
+}
+
+// ============================================================
+// Molecular network
+// ============================================================
+function renderNetworkList() {
+  const query = (document.getElementById('network-search').value || '').toLowerCase();
+  const ul = document.getElementById('network-list');
+  ul.innerHTML = '';
+  const comps = DATA.network_components || {};
+  Object.values(comps)
+    .filter(c => {
+      if (!query) return true;
+      if (String(c.component_id).includes(query)) return true;
+      return (c.members || []).some(m => (m.compound_name || '').toLowerCase().includes(query));
+    })
+    .sort((a, b) => b.n_features - a.n_features || a.component_id - b.component_id)
+    .forEach(c => {
+      const named = (c.members || []).find(m => m.compound_name);
+      const li = document.createElement('li');
+      li.dataset.componentId = c.component_id;
+      li.className = STATE.currentComponentId === String(c.component_id) ? 'active' : '';
+      li.innerHTML = `<strong>Family ${c.component_id}</strong> &nbsp; ${c.n_features} features · ${c.n_edges} edges<br>
+        <span style="color:#64748b">${named ? truncate(named.compound_name, 32) : ''}</span>`;
+      li.onclick = () => openNetwork(c.component_id);
+      ul.appendChild(li);
+    });
+}
+
+function openNetwork(id) {
+  STATE.currentComponentId = String(id);
+  switchTab('network');
+  renderNetworkList();
+  renderNetworkDetail(STATE.currentComponentId);
+}
+
+// Fruchterman-Reingold layout over one (small) component. Deterministic —
+// nodes seeded on a circle (no RNG); returns positions in [0,1]^2. Trivial or
+// large families keep the circular seeding (no force iterations).
+function _networkLayout(nodeIds, edges) {
+  const n = nodeIds.length;
+  const pos = {};
+  nodeIds.forEach((id, i) => {
+    const a = (2 * Math.PI * i) / n;
+    pos[id] = { x: 0.5 + 0.4 * Math.cos(a), y: 0.5 + 0.4 * Math.sin(a) };
+  });
+  if (n <= 2 || n > 60) return pos;
+
+  const k = 0.9 / Math.sqrt(n);
+  const iters = 100;
+  for (let it = 0; it < iters; it++) {
+    const disp = {};
+    nodeIds.forEach(id => { disp[id] = { x: 0, y: 0 }; });
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = nodeIds[i], b = nodeIds[j];
+        const dx = pos[a].x - pos[b].x, dy = pos[a].y - pos[b].y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        const rep = (k * k) / d;
+        disp[a].x += (dx / d) * rep; disp[a].y += (dy / d) * rep;
+        disp[b].x -= (dx / d) * rep; disp[b].y -= (dy / d) * rep;
+      }
+    }
+    edges.forEach(e => {
+      const a = e[0], b = e[1];
+      if (!pos[a] || !pos[b]) return;
+      const dx = pos[a].x - pos[b].x, dy = pos[a].y - pos[b].y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+      const att = (d * d) / k;
+      disp[a].x -= (dx / d) * att; disp[a].y -= (dy / d) * att;
+      disp[b].x += (dx / d) * att; disp[b].y += (dy / d) * att;
+    });
+    const temp = 0.1 * (1 - it / iters);
+    nodeIds.forEach(id => {
+      const dx = disp[id].x, dy = disp[id].y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+      pos[id].x += (dx / d) * Math.min(d, temp);
+      pos[id].y += (dy / d) * Math.min(d, temp);
+      pos[id].x = Math.max(0.02, Math.min(0.98, pos[id].x));
+      pos[id].y = Math.max(0.02, Math.min(0.98, pos[id].y));
+    });
+  }
+  return pos;
+}
+
+function renderNetworkDetail(id) {
+  const comp = (DATA.network_components || {})[String(id)];
+  const container = document.getElementById('network-detail');
+  if (!comp) {
+    container.innerHTML = '<div class="card" style="color:#94a3b8;font-size:13px;padding:40px;text-align:center">Family not found.</div>';
+    return;
+  }
+
+  let html = `
+    <div class="card" style="margin-bottom:12px">
+      <h2>Molecular Family ${comp.component_id}</h2>
+      <div class="prop-grid" style="margin-bottom:6px">
+        <div class="key">Features</div><div class="val">${comp.n_features}</div>
+        <div class="key">Edges</div><div class="val">${comp.n_edges}</div>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Click a node to see its per-treatment abundances. Edge width ∝ cosine similarity; node colour = annotation source.</div>
+      <div id="network-graph" style="height:460px;width:100%"></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3 id="network-box-title">Node abundances</h3>
+      <div id="network-node-box" style="height:440px;width:100%"></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h3>Compare MS2 spectra</h3>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Head-to-tail comparison of two family members' fragmentation spectra. Use <b>Copy peaks</b> to paste a spectrum into a GNPS2 FASST search.</div>
+      <div id="spectrum-compare-body"></div>
+    </div>
+    <div class="card">
+      <h3>Members</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#f8fafc">
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Feature ID</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Compound</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">Source</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">m/z</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">RT</th>
+        </tr></thead><tbody>
+  `;
+  comp.members.forEach(m => {
+    html += `<tr onclick="renderFeatureTreatmentBox('${m.feature_id}','network-node-box');document.getElementById('network-box-title').textContent='Feature ${m.feature_id} — per-treatment abundances';" style="cursor:pointer" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.feature_id}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${truncate(m.compound_name, 32) || '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.annotation_source || '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.mz != null ? m.mz.toFixed(4) : '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">${m.rt != null ? m.rt.toFixed(2) : '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+
+  // -- Node-link graph --
+  const nodeIds = comp.feature_ids.slice();
+  const large = comp.n_features > 60;
+  const pos = _networkLayout(nodeIds, comp.edges);
+
+  const sourceColors = {};
+  let sci = 0;
+  const nodeColor = (src) => {
+    const key = src || 'unannotated';
+    if (!(key in sourceColors)) sourceColors[key] = COMPARISON_PALETTE[sci++ % COMPARISON_PALETTE.length];
+    return sourceColors[key];
+  };
+  const memberById = {};
+  comp.members.forEach(m => { memberById[m.feature_id] = m; });
+
+  const traces = [];
+  // Edge traces — per-edge for cosine-scaled width (bounded families only).
+  if (comp.edges.length <= 200) {
+    comp.edges.forEach(e => {
+      const a = pos[e[0]], b = pos[e[1]];
+      if (!a || !b) return;
+      const cos = e[2] != null ? e[2] : 0;
+      traces.push({
+        x: [a.x, b.x], y: [a.y, b.y], mode: 'lines', type: 'scatter',
+        line: { width: 1 + 5 * cos, color: '#cbd5e1' },
+        hoverinfo: 'text', text: `${e[0]}–${e[1]}<br>cosine ${cos.toFixed(3)}`,
+        showlegend: false,
+      });
+    });
+  } else {
+    const ex = [], ey = [];
+    comp.edges.forEach(e => {
+      const a = pos[e[0]], b = pos[e[1]];
+      if (!a || !b) return;
+      ex.push(a.x, b.x, null); ey.push(a.y, b.y, null);
+    });
+    traces.push({ x: ex, y: ey, mode: 'lines', type: 'scatter',
+      line: { width: 1, color: '#cbd5e1' }, hoverinfo: 'none', showlegend: false });
+  }
+
+  // Node trace.
+  const nx = [], ny = [], ntext = [], nhover = [], ncolor = [], ncustom = [];
+  nodeIds.forEach(fid => {
+    const p = pos[fid]; if (!p) return;
+    const m = memberById[fid] || {};
+    nx.push(p.x); ny.push(p.y);
+    ntext.push(large ? '' : String(fid));
+    ncustom.push(fid);
+    ncolor.push(nodeColor(m.annotation_source));
+    nhover.push(`Feature ${fid}<br>${m.compound_name || '(unannotated)'}<br>m/z ${m.mz != null ? m.mz.toFixed(4) : '—'} · RT ${m.rt != null ? m.rt.toFixed(2) : '—'}`);
+  });
+  traces.push({
+    x: nx, y: ny, mode: large ? 'markers' : 'markers+text', type: 'scatter',
+    text: ntext, textposition: 'top center', textfont: { size: 10 },
+    customdata: ncustom,
+    marker: { size: 14, color: ncolor, line: { width: 1, color: '#334155' } },
+    hoverinfo: 'text', hovertext: nhover, showlegend: false,
+  });
+
+  Plotly.newPlot('network-graph', traces, {
+    margin: { t: 10, b: 10, l: 10, r: 10 },
+    height: 460,
+    hovermode: 'closest',
+    xaxis: { visible: false, range: [-0.05, 1.05] },
+    yaxis: { visible: false, range: [-0.05, 1.05], scaleanchor: 'x', scaleratio: 1 },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+  }, { displayModeBar: false, responsive: true });
+
+  const graphEl = document.getElementById('network-graph');
+  graphEl.on('plotly_click', ev => {
+    const p = ev.points[0];
+    if (p.customdata == null) return;
+    renderFeatureTreatmentBox(String(p.customdata), 'network-node-box');
+    document.getElementById('network-box-title').textContent = `Feature ${p.customdata} — per-treatment abundances`;
+  });
+
+  // Default boxplot: first member.
+  const first = comp.feature_ids[0];
+  renderFeatureTreatmentBox(String(first), 'network-node-box');
+  document.getElementById('network-box-title').textContent = `Feature ${first} — per-treatment abundances`;
+
+  // MS2 mirror-comparison panel.
+  renderNetworkSpectrumCompare(comp);
+}
+
+// Per-treatment grouped boxplot for a single feature. Preferred grouping uses
+// a factorial comparison's sample→factor map; falls back to DATA.groups.
+function renderFeatureTreatmentBox(fid, divId) {
+  const f = DATA.features[String(fid)];
+  const el = document.getElementById(divId);
+  if (!f || !el) return;
+  const abundances = f.abundances || {};
+
+  const compsMeta = DATA.comparisons_meta || {};
+  const cmpName = Object.keys(compsMeta)[0];
+  const meta = cmpName ? compsMeta[cmpName] : null;
+
+  const traces = [];
+  let layout;
+  if (meta && meta.sample_factors && (meta.factors || []).length) {
+    const factors = meta.factors;
+    const levels = meta.levels || {};
+    const factor1 = factors[0];
+    const factor2 = factors[1] || null;
+    const xFactor = factor2 || factor1;
+    const colorFactor = factor2 ? factor1 : null;
+    const xLevels = (levels[xFactor]) || [];
+    const colorLevels = colorFactor ? (levels[colorFactor] || []) : [null];
+    colorLevels.forEach((cLvl, j) => {
+      const xs = [], ys = [];
+      Object.entries(meta.sample_factors).forEach(([sample, fmap]) => {
+        const v = abundances[sample];
+        if (v == null) return;
+        const xVal = fmap[xFactor];
+        if (xVal == null) return;
+        if (colorFactor && fmap[colorFactor] !== cLvl) return;
+        xs.push(xVal); ys.push(v);
+      });
+      const color = paletteColor(cLvl, j);
+      traces.push({ x: xs, y: ys, name: cLvl != null ? String(cLvl) : (xFactor || 'value'),
+        type: 'box', boxpoints: 'all', jitter: 0.4, pointpos: 0,
+        marker: { color, size: 5 }, line: { color }, fillcolor: color + '44' });
+    });
+    layout = {
+      margin: { t: 10, b: 50, l: 55, r: 10 }, height: 440, boxmode: 'group',
+      showlegend: colorFactor != null,
+      legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 11 } },
+      yaxis: { title: 'Abundance', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      xaxis: { title: xFactor || '', titlefont: { size: 11 }, tickfont: { size: 10 },
+        categoryorder: 'array', categoryarray: xLevels },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    };
+  } else {
+    (DATA.groups || []).forEach((g, j) => {
+      const samples = (DATA.group_members || {})[g] || [];
+      const ys = samples.map(s => abundances[s]).filter(v => v != null);
+      const color = paletteColor(g, j);
+      traces.push({ y: ys, name: String(g), type: 'box', boxpoints: 'all',
+        jitter: 0.4, pointpos: 0, marker: { color, size: 5 }, line: { color }, fillcolor: color + '44' });
+    });
+    layout = {
+      margin: { t: 10, b: 50, l: 55, r: 10 }, height: 440, showlegend: false,
+      yaxis: { title: 'Abundance', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      xaxis: { tickfont: { size: 10 } },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    };
+  }
+  Plotly.newPlot(divId, traces, layout, { displayModeBar: false, responsive: true });
+}
+
+// Centroid stem plot of a single feature's processed MS2 spectrum.
+function renderFeatureSpectrum(fid, divId) {
+  const f = DATA.features[String(fid)];
+  const el = document.getElementById(divId);
+  if (!f || !el || !f.ms2 || !f.ms2.mz || !f.ms2.mz.length) return;
+  const spec = f.ms2;
+
+  // Sticks: one polyline with (mz, 0) → (mz, intensity) → null per peak.
+  const stickX = [], stickY = [];
+  spec.mz.forEach((m, i) => {
+    stickX.push(m, m, null);
+    stickY.push(0, spec.intensity_rel[i], null);
+  });
+
+  // Markers at the peak tips carry the hover text.
+  const hover = spec.mz.map((m, i) =>
+    'm/z ' + m.toFixed(4) + '<br>rel. int. ' + spec.intensity_rel[i].toFixed(3));
+
+  const traces = [
+    { x: stickX, y: stickY, mode: 'lines', type: 'scatter',
+      line: { color: '#2563eb', width: 1 }, hoverinfo: 'skip', showlegend: false },
+    { x: spec.mz, y: spec.intensity_rel, mode: 'markers', type: 'scatter',
+      marker: { color: '#2563eb', size: 4 }, text: hover, hoverinfo: 'text',
+      showlegend: false },
+  ];
+
+  const shapes = [];
+  const annotations = [];
+  if (spec.precursor_mz != null) {
+    shapes.push({ type: 'line', x0: spec.precursor_mz, x1: spec.precursor_mz,
+      y0: 0, y1: 1.05, line: { color: '#dc2626', width: 1, dash: 'dot' } });
+    annotations.push({ x: spec.precursor_mz, y: 1.05, yref: 'y', text: 'precursor',
+      showarrow: false, font: { size: 10, color: '#dc2626' }, yanchor: 'bottom' });
+  }
+
+  Plotly.newPlot(divId, traces, {
+    margin: { t: 20, b: 45, l: 55, r: 10 }, height: 300,
+    yaxis: { title: 'Relative intensity', titlefont: { size: 11 }, tickfont: { size: 10 },
+      range: [0, 1.15], rangemode: 'tozero' },
+    xaxis: { title: 'm/z', titlefont: { size: 11 }, tickfont: { size: 10 } },
+    shapes, annotations,
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+  }, { displayModeBar: false, responsive: true });
+}
+
+// Tab-separated "m/z<TAB>intensity" peak list for a feature's displayed MS2
+// spectrum — the format GNPS2 FASST accepts when pasting a query spectrum.
+function spectrumPeaksText(fid) {
+  const f = DATA.features[String(fid)];
+  if (!f || !f.ms2 || !f.ms2.mz) return '';
+  return f.ms2.mz
+    .map((m, i) => m.toFixed(4) + '\t' + f.ms2.intensity_rel[i].toFixed(4))
+    .join('\n');
+}
+
+// Clipboard copy with a file:// fallback (navigator.clipboard is unavailable
+// on some file:// contexts). Flashes a confirmation on the triggering button.
+function copyTextToClipboard(text, btn) {
+  const done = () => {
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1200);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => _fallbackCopy(text, done));
+  } else {
+    _fallbackCopy(text, done);
+  }
+}
+function _fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+  document.body.removeChild(ta);
+  if (done) done();
+}
+function copySpectrumPeaks(fid, btn) {
+  const text = spectrumPeaksText(fid);
+  if (text) copyTextToClipboard(text, btn);
+}
+
+// ---- MS2 spectrum comparison (Network view) --------------------------------
+// Edge triples for the family currently shown in the compare panel, used to
+// report the GNPS cosine between the two selected nodes when they share an edge.
+let networkCompareEdges = [];
+// matchms similarity lookup for the current family: { "lo|hi": { scoreType:
+// { scaling: { score, matches:[[idxA,idxB],...] } } } }, keyed with the lower
+// feature id first (matches how data.py assembles it).
+let networkCompareSim = {};
+
+const SCORE_TYPE_LABELS = { modified: 'modified cosine', direct: 'direct cosine' };
+const SCALING_LABELS = { linear: 'linear', sqrt: 'sqrt', massbank: 'MassBank' };
+
+// Populate the "Compare MS2 spectra" panel for a molecular family. Only members
+// that carry a displayed MS2 spectrum are offered; needs at least two.
+function renderNetworkSpectrumCompare(comp) {
+  const body = document.getElementById('spectrum-compare-body');
+  if (!body) return;
+  networkCompareEdges = comp.edges || [];
+  networkCompareSim = comp.similarity || {};
+  const withMs2 = comp.feature_ids.filter(fid => {
+    const f = DATA.features[String(fid)];
+    return f && f.ms2 && f.ms2.mz && f.ms2.mz.length;
+  });
+  if (withMs2.length < 2) {
+    body.innerHTML = `<div style="color:#94a3b8;font-size:12px">${withMs2.length === 0
+      ? 'No MS2 spectra ingested for this family.'
+      : 'Only one feature here has an MS2 spectrum — need two to compare.'}</div>`;
+    return;
+  }
+  const memberById = {};
+  comp.members.forEach(m => { memberById[m.feature_id] = m; });
+  const opt = (fid) => {
+    const m = memberById[fid] || {};
+    const label = 'Feature ' + fid + (m.compound_name ? ' — ' + truncate(m.compound_name, 24) : '');
+    return `<option value="${fid}">${label}</option>`;
+  };
+  const selStyle = 'padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:12px';
+  const btnStyle = 'padding:3px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:11px';
+
+  // matchms score-type + scaling toggles — only when similarity was computed.
+  const simMeta = DATA.similarity_meta;
+  let simControls = '';
+  if (simMeta && simMeta.score_types && simMeta.score_types.length) {
+    const stOpts = simMeta.score_types.map(s =>
+      `<option value="${s}">${SCORE_TYPE_LABELS[s] || s}</option>`).join('');
+    const scOpts = (simMeta.scalings || []).map(s =>
+      `<option value="${s}">${SCALING_LABELS[s] || s}</option>`).join('');
+    const tolNote = simMeta.tolerance != null
+      ? `<span style="font-size:11px;color:#94a3b8">tol ${simMeta.tolerance} Da</span>` : '';
+    simControls = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:#475569">matchms</span>
+      <select id="cmp-scoretype" style="${selStyle}" onchange="updateNetworkMirror()">${stOpts}</select>
+      <span style="font-size:12px;color:#475569">scaling</span>
+      <select id="cmp-scaling" style="${selStyle}" onchange="updateNetworkMirror()">${scOpts}</select>
+      ${tolNote}
+    </div>`;
+  }
+
+  body.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:#2563eb;font-weight:600">Top</span>
+      <select id="cmp-top" style="${selStyle}" onchange="updateNetworkMirror()">${withMs2.map(opt).join('')}</select>
+      <button style="${btnStyle}" onclick="copySpectrumPeaks(document.getElementById('cmp-top').value, this)">Copy peaks</button>
+      <span style="font-size:12px;color:#dc2626;font-weight:600;margin-left:8px">Bottom</span>
+      <select id="cmp-bottom" style="${selStyle}" onchange="updateNetworkMirror()">${withMs2.map(opt).join('')}</select>
+      <button style="${btnStyle}" onclick="copySpectrumPeaks(document.getElementById('cmp-bottom').value, this)">Copy peaks</button>
+    </div>
+    ${simControls}
+    <div id="cmp-cosine" style="font-size:11px;color:#64748b;margin-bottom:6px"></div>
+    <div id="spectrum-mirror" style="height:360px;width:100%"></div>
+  `;
+  document.getElementById('cmp-top').value = withMs2[0];
+  document.getElementById('cmp-bottom').value = withMs2[1];
+  // Default to modified cosine when available (precursor-shift aware).
+  const stSel = document.getElementById('cmp-scoretype');
+  if (stSel && simMeta && (simMeta.score_types || []).includes('modified')) stSel.value = 'modified';
+  updateNetworkMirror();
+}
+
+// Look up the matchms record for the two selected features at the current
+// score-type + scaling, orienting the matched index pairs so [0] indexes the
+// top spectrum and [1] the bottom.
+function _lookupMirrorMatches(a, b) {
+  const stSel = document.getElementById('cmp-scoretype');
+  const scSel = document.getElementById('cmp-scaling');
+  if (!stSel || !scSel) return { rec: null, scoreType: null, scaling: null, matches: [] };
+  const scoreType = stSel.value, scaling = scSel.value;
+  const na = +a, nb = +b;
+  const lo = Math.min(na, nb), hi = Math.max(na, nb);
+  const byType = networkCompareSim[lo + '|' + hi];
+  const rec = byType && byType[scoreType] ? byType[scoreType][scaling] : null;
+  let matches = [];
+  if (rec && rec.matches) {
+    matches = na === lo ? rec.matches.map(m => [m[0], m[1]])
+                        : rec.matches.map(m => [m[1], m[0]]);
+  }
+  return { rec, scoreType, scaling, matches };
+}
+
+function updateNetworkMirror() {
+  const topSel = document.getElementById('cmp-top');
+  const botSel = document.getElementById('cmp-bottom');
+  if (!topSel || !botSel) return;
+  const a = topSel.value, b = botSel.value;
+  const { rec, scoreType, scaling, matches } = _lookupMirrorMatches(a, b);
+  renderSpectrumMirror(a, b, 'spectrum-mirror', matches);
+
+  const cosEl = document.getElementById('cmp-cosine');
+  if (!cosEl) return;
+  let gnps = null;
+  networkCompareEdges.forEach(e => {
+    if ((String(e[0]) === String(a) && String(e[1]) === String(b)) ||
+        (String(e[0]) === String(b) && String(e[1]) === String(a))) gnps = e[2];
+  });
+  const parts = [];
+  if (rec) {
+    const n = (rec.matches || []).length;
+    const stLabel = SCORE_TYPE_LABELS[scoreType] || scoreType;
+    const scLabel = SCALING_LABELS[scaling] || scaling;
+    parts.push(`matchms ${stLabel} (${scLabel}): <b>${rec.score.toFixed(3)}</b> · `
+      + `${n} matched peak${n === 1 ? '' : 's'}`);
+  }
+  if (gnps != null) parts.push(`GNPS cosine ${gnps.toFixed(3)}`);
+  if (!parts.length) parts.push('These nodes are not directly connected in the family.');
+  cosEl.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+}
+
+// Head-to-tail (mirror) plot: top spectrum upright, bottom spectrum inverted,
+// each base-peak normalised. Mirrors renderFeatureSpectrum's stick idiom.
+// `matches` (optional) is a list of [topIdx, bottomIdx] peak-index pairs; those
+// peaks are drawn in a highlight colour with faint connectors, the rest dimmed.
+function renderSpectrumMirror(fidTop, fidBottom, divId, matches) {
+  const el = document.getElementById(divId);
+  const fa = DATA.features[String(fidTop)], fb = DATA.features[String(fidBottom)];
+  if (!el || !fa || !fb || !fa.ms2 || !fb.ms2) return;
+  const sTop = fa.ms2, sBot = fb.ms2;
+  matches = matches || [];
+  const matchedTop = new Set(matches.map(m => m[0]));
+  const matchedBot = new Set(matches.map(m => m[1]));
+  const partnerTop = {}; matches.forEach(m => { partnerTop[m[0]] = sBot.mz[m[1]]; });
+  const partnerBot = {}; matches.forEach(m => { partnerBot[m[1]] = sTop.mz[m[0]]; });
+
+  const MATCH_COLOR = '#16a34a';
+
+  // Build a stick trace over the subset of peaks passing `pred`.
+  const sticks = (spec, sign, pred) => {
+    const x = [], y = [];
+    spec.mz.forEach((m, i) => {
+      if (!pred(i)) return;
+      x.push(m, m, null); y.push(0, sign * spec.intensity_rel[i], null);
+    });
+    return { x, y };
+  };
+  const hover = (spec, partner) => spec.mz.map((m, i) => {
+    let t = 'm/z ' + m.toFixed(4) + '<br>rel. int. ' + spec.intensity_rel[i].toFixed(3);
+    if (partner[i] != null) t += '<br>↔ matched m/z ' + partner[i].toFixed(4);
+    return t;
+  });
+
+  const topUnm = sticks(sTop, 1, i => !matchedTop.has(i));
+  const topMat = sticks(sTop, 1, i => matchedTop.has(i));
+  const botUnm = sticks(sBot, -1, i => !matchedBot.has(i));
+  const botMat = sticks(sBot, -1, i => matchedBot.has(i));
+
+  const topMarkerColor = sTop.mz.map((m, i) => matchedTop.has(i) ? MATCH_COLOR : '#2563eb');
+  const botMarkerColor = sBot.mz.map((m, i) => matchedBot.has(i) ? MATCH_COLOR : '#dc2626');
+
+  // Faint connectors linking each matched pair across the mirror axis.
+  const cx = [], cy = [];
+  matches.forEach(([it, ib]) => {
+    cx.push(sTop.mz[it], sBot.mz[ib], null);
+    cy.push(sTop.intensity_rel[it], -sBot.intensity_rel[ib], null);
+  });
+
+  const hasMatches = matches.length > 0;
+  const traces = [
+    { x: cx, y: cy, mode: 'lines', type: 'scatter',
+      line: { color: MATCH_COLOR, width: 1, dash: 'dot' }, opacity: 0.4,
+      hoverinfo: 'skip', showlegend: false },
+    { x: topUnm.x, y: topUnm.y, mode: 'lines', type: 'scatter',
+      line: { color: '#2563eb', width: 1 }, opacity: hasMatches ? 0.45 : 1,
+      hoverinfo: 'skip', name: 'Feature ' + fidTop, showlegend: true },
+    { x: topMat.x, y: topMat.y, mode: 'lines', type: 'scatter',
+      line: { color: MATCH_COLOR, width: 2 }, hoverinfo: 'skip',
+      name: 'matched', showlegend: hasMatches },
+    { x: botUnm.x, y: botUnm.y, mode: 'lines', type: 'scatter',
+      line: { color: '#dc2626', width: 1 }, opacity: hasMatches ? 0.45 : 1,
+      hoverinfo: 'skip', name: 'Feature ' + fidBottom, showlegend: true },
+    { x: botMat.x, y: botMat.y, mode: 'lines', type: 'scatter',
+      line: { color: MATCH_COLOR, width: 2 }, hoverinfo: 'skip', showlegend: false },
+    { x: sTop.mz, y: sTop.intensity_rel, mode: 'markers', type: 'scatter',
+      marker: { color: topMarkerColor, size: 4 }, text: hover(sTop, partnerTop),
+      hoverinfo: 'text', showlegend: false },
+    { x: sBot.mz, y: sBot.intensity_rel.map(v => -v), mode: 'markers', type: 'scatter',
+      marker: { color: botMarkerColor, size: 4 }, text: hover(sBot, partnerBot),
+      hoverinfo: 'text', showlegend: false },
+  ];
+
+  Plotly.newPlot(divId, traces, {
+    margin: { t: 24, b: 45, l: 55, r: 10 }, height: 360,
+    shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 0, y1: 0,
+      line: { color: '#94a3b8', width: 1 } }],
+    yaxis: { title: 'Relative intensity', titlefont: { size: 11 }, tickfont: { size: 10 },
+      range: [-1.15, 1.15], tickvals: [-1, -0.5, 0, 0.5, 1], ticktext: ['1', '0.5', '0', '0.5', '1'] },
+    xaxis: { title: 'm/z', titlefont: { size: 11 }, tickfont: { size: 10 } },
+    legend: { orientation: 'h', x: 0, y: 1.12, font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+  }, { displayModeBar: false, responsive: true });
+}
+
+// ============================================================
+// Normality Visualization
+// ============================================================
+function loadNormalityFeature() {
+  const v = document.getElementById('norm-feature-input').value.trim();
+  if (!v) return;
+  if (!DATA.features[v]) {
+    document.getElementById('normality-content').innerHTML =
+      `<div class="card" style="color:#b91c1c;font-size:13px;padding:24px">Feature ${v} not found.</div>`;
+    return;
+  }
+  STATE.currentFeatureId = v;
+  renderNormality(v);
+}
+
+// Inverse standard normal CDF (Acklam approximation).
+function _invNorm(p) {
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02,
+             -2.759285104469687e+02, 1.383577518672690e+02,
+             -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02,
+             -1.556989798598866e+02, 6.680131188771972e+01,
+             -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01,
+             -2.400758277161838e+00, -2.549732539343734e+00,
+              4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01,
+             2.445134137142996e+00, 3.754408661907416e+00];
+  const pLow = 0.02425, pHigh = 1 - pLow;
+  let q, r;
+  if (p < pLow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5]) /
+           ((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1);
+  }
+  if (p <= pHigh) {
+    q = p - 0.5; r = q * q;
+    return (((((a[0]*r + a[1])*r + a[2])*r + a[3])*r + a[4])*r + a[5])*q /
+           (((((b[0]*r + b[1])*r + b[2])*r + b[3])*r + b[4])*r + 1);
+  }
+  q = Math.sqrt(-2 * Math.log(1 - p));
+  return -(((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5]) /
+          ((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1);
+}
+
+// Compute per-sample cell residuals for a feature against a 2-way design:
+// resid_s = y_s - mean(y over samples in same (factor1, factor2) cell).
+// Equivalent to the residual from the full additive+interaction model.
+function _computeCellResiduals(feature, compMeta) {
+  const factors = compMeta.factors || [];
+  if (factors.length < 1) return null;
+  const f1 = factors[0];
+  const f2 = factors[1] || null;
+  const sampleFactors = compMeta.sample_factors || {};
+  const abundances = feature.abundances || {};
+
+  const cellSums = {};
+  const cellCounts = {};
+  const samples = [];
+  for (const [s, fmap] of Object.entries(sampleFactors)) {
+    const v = abundances[s];
+    if (v == null || !isFinite(v)) continue;
+    const l1 = fmap[f1];
+    const l2 = f2 ? fmap[f2] : null;
+    if (l1 == null || (f2 && l2 == null)) continue;
+    const key = f2 ? `${l1}||${l2}` : String(l1);
+    cellSums[key] = (cellSums[key] || 0) + v;
+    cellCounts[key] = (cellCounts[key] || 0) + 1;
+    samples.push({ sample: s, value: v, cellKey: key, l1, l2 });
+  }
+  if (samples.length === 0) return null;
+
+  const residuals = samples.map(s => s.value - cellSums[s.cellKey] / cellCounts[s.cellKey]);
+  return { samples, residuals };
+}
+
+function fmtNum(v, digits) {
+  if (v == null || !isFinite(v)) return '—';
+  return v.toFixed(digits != null ? digits : 3);
+}
+
+function renderNormality(id) {
+  const f = DATA.features[String(id)];
+  const container = document.getElementById('normality-content');
+  document.getElementById('norm-current').textContent =
+    'Showing feature ' + id + ((f.annotation || {}).compound_name ? ' — ' + f.annotation.compound_name : '');
+
+  const compsMeta = DATA.comparisons_meta || {};
+  const featComps = f.comparisons || {};
+  const names = Object.keys(featComps).filter(n => compsMeta[n]);
+  if (names.length === 0) {
+    container.innerHTML = '<div class="card" style="color:#94a3b8;font-size:13px;padding:24px">No factorial comparisons available for this feature.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  names.forEach(name => {
+    const meta = compsMeta[name];
+    const data = featComps[name];
+    const diag = data.residual_diag || null;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.marginBottom = '16px';
+
+    let statsHtml = '';
+    if (diag) {
+      const normalBadge = diag.normal_residuals == null
+        ? '<span class="consistency-badge insufficient">—</span>'
+        : diag.normal_residuals
+          ? '<span class="consistency-badge consistent">✓ normal</span>'
+          : '<span class="consistency-badge inconsistent">✗ non-normal</span>';
+      statsHtml = `
+        <div class="prop-grid" style="margin-bottom:10px">
+          <div class="key">R²</div><div class="val">${fmtNum(diag.r2, 3)}</div>
+          <div class="key">Residual σ</div><div class="val">${fmtNum(diag.residual_sigma, 3)}</div>
+          <div class="key">Shapiro p</div><div class="val">${fmtP(diag.shapiro_p)}</div>
+          <div class="key">Shapiro p<sub>adj</sub></div><div class="val">${fmtP(diag.shapiro_p_adj)}</div>
+          <div class="key">Max |std resid|</div><div class="val">${fmtNum(diag.max_abs_std_resid, 2)}</div>
+          <div class="key">Normality (α=0.05)</div><div class="val">${normalBadge}</div>
+          <div class="key">In full model</div><div class="val">${diag.in_full_model ? 'yes' : 'no'}</div>
+        </div>
+      `;
+    } else if (!meta.has_residual_diag) {
+      statsHtml = `<div style="font-size:12px;color:#94a3b8;margin-bottom:10px">
+        No stored residual diagnostics for this comparison. QQ plot computed from cell residuals; Shapiro / R² unavailable.
+      </div>`;
+    } else {
+      statsHtml = `<div style="font-size:12px;color:#94a3b8;margin-bottom:10px">
+        Feature not in full model — no stored stats. QQ plot computed from cell residuals below.
+      </div>`;
+    }
+
+    const qqId = 'norm-qq-' + name.replace(/\W/g, '_') + '-' + id;
+    const histId = 'norm-hist-' + name.replace(/\W/g, '_') + '-' + id;
+    card.innerHTML = `
+      <h3 style="margin-bottom:8px">${name} <span style="color:#64748b;font-weight:400;font-size:11px">(${meta.kind || ''})</span></h3>
+      ${statsHtml}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div id="${qqId}" style="height:340px"></div>
+        <div id="${histId}" style="height:340px"></div>
+      </div>
+    `;
+    container.appendChild(card);
+
+    const computed = _computeCellResiduals(f, meta);
+    if (!computed || computed.residuals.length < 3) {
+      document.getElementById(qqId).innerHTML =
+        '<div style="color:#94a3b8;font-size:12px;padding:12px">Not enough data to compute residuals.</div>';
+      return;
+    }
+
+    const resid = computed.residuals.slice().sort((a, b) => a - b);
+    const n = resid.length;
+    const mean = resid.reduce((s, v) => s + v, 0) / n;
+    const variance = resid.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, n - 1);
+    const sigmaLocal = (diag && diag.residual_sigma != null && isFinite(diag.residual_sigma))
+      ? diag.residual_sigma : Math.sqrt(variance);
+    const stdResid = resid.map(v => sigmaLocal > 0 ? (v / sigmaLocal) : v);
+
+    const theo = stdResid.map((_, i) => _invNorm((i + 0.5) / n));
+
+    // QQ plot
+    const lo = Math.min(theo[0], stdResid[0]);
+    const hi = Math.max(theo[n - 1], stdResid[n - 1]);
+    Plotly.newPlot(qqId, [
+      { x: theo, y: stdResid, mode: 'markers', type: 'scatter',
+        marker: { color: '#3b82f6', size: 6 }, name: 'residuals' },
+      { x: [lo, hi], y: [lo, hi], mode: 'lines', type: 'scatter',
+        line: { color: 'firebrick', width: 1 }, name: 'y = x', showlegend: false },
+    ], {
+      title: { text: `QQ plot (n = ${n})`, font: { size: 12 } },
+      margin: { t: 36, b: 44, l: 50, r: 10 },
+      height: 340,
+      showlegend: false,
+      xaxis: { title: 'Theoretical N(0,1)', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      yaxis: { title: 'Std. residual quantile', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    }, { displayModeBar: false, responsive: true });
+
+    // Residual histogram with N(0, σ̂) overlay
+    const xMin = Math.min(...resid), xMax = Math.max(...resid);
+    const xs = [];
+    const steps = 80;
+    for (let i = 0; i <= steps; i++) xs.push(xMin + (xMax - xMin) * i / steps);
+    const pdf = xs.map(x => Math.exp(-0.5 * (x / sigmaLocal) ** 2) / (sigmaLocal * Math.sqrt(2 * Math.PI)));
+
+    Plotly.newPlot(histId, [
+      { x: resid, type: 'histogram', histnorm: 'probability density',
+        marker: { color: '#60a5fa', line: { color: '#fff', width: 1 } },
+        opacity: 0.85, name: 'residuals' },
+      { x: xs, y: pdf, mode: 'lines', type: 'scatter',
+        line: { color: 'firebrick', width: 1.5 },
+        name: `N(0, σ̂=${sigmaLocal.toFixed(3)})` },
+    ], {
+      title: { text: 'Residual distribution', font: { size: 12 } },
+      margin: { t: 36, b: 44, l: 50, r: 10 },
+      height: 340,
+      showlegend: true,
+      legend: { x: 0, y: 1.1, orientation: 'h', font: { size: 10 } },
+      xaxis: { title: 'Residual', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      yaxis: { title: 'Density', titlefont: { size: 11 }, tickfont: { size: 10 } },
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    }, { displayModeBar: false, responsive: true });
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metabproject"
+version = "0.2.0"
+description = "Persistent, project-based untargeted LC-MS/MS metabolomics data processing"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Alejandro MC" }]
+dependencies = [
+    "click>=8.0",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.11",
+    "scikit-learn>=1.3",
+    "pyarrow>=14.0",
+    "matplotlib>=3.6",
+    "seaborn>=0.12",
+    "pyyaml>=6.0",
+    "plotly>=5.18",
+    "jinja2>=3.1",
+    "httpx>=0.27",
+    "statsmodels>=0.14",
+    "scikit-posthocs>=0.8",
+]
+
+[project.optional-dependencies]
+structures = [
+    "rdkit",
+]
+pcoa = [
+    "scikit-bio>=0.5",
+]
+spectra = [
+    "pyteomics>=4.6",
+    "spectrum-utils>=0.4",
+]
+similarity = [
+    "matchms>=0.24",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+    "pingouin>=0.5",
+]
+
+[project.scripts]
+metab = "metabproject.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
